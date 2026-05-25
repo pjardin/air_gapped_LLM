@@ -1,0 +1,55 @@
+# Ollama Modelfile — cisc187 tag (llama-3.2-1b-cisc187).
+#
+# This Modelfile is used in TWO phases of the pipeline. The tag stays the same;
+# only the FROM line changes between phases:
+#
+#   Phase 1 — PRE-fine-tune (optional baseline):
+#     FROM points at the base Llama-3.2-1B-Instruct GGUF (e.g. the Ollama
+#     library tag `llama3.2:1b`, or a local GGUF you converted from the HF
+#     safetensors). Registering this gives you an untuned baseline tag to
+#     compare the fine-tune against by asking both the same questions.
+#
+#   Phase 2 — POST-fine-tune (after Step 4g):
+#     Edit the FROM line to point at the MERGED GGUF the training pipeline
+#     produces (typically ~/llama-3.2-1b-cisc187-f16.gguf). Re-run
+#     `ollama create` with the SAME tag — the existing manifest is replaced,
+#     so the tag `llama-3.2-1b-cisc187` now serves the tuned model.
+#
+# The SYSTEM prompt is identical in both phases on purpose — that way any
+# behavior difference you observe is attributable to the weights, not the
+# prompt.
+#
+# Before `ollama create`:
+#   - Put the GGUF (whichever phase) next to this file, OR edit FROM below
+#     to point at its actual path. The `./` resolves relative to THIS file's
+#     directory, not your shell's pwd.
+#
+# Import (same command in both phases):
+#   ollama create llama-3.2-1b-cisc187 -f modelfiles/Modelfile.llama-3.2-1b-cisc187
+
+FROM /Users/pascaljardin/llama-3.2-1b-cisc187-f16.gguf
+
+# Context window for casual chat / `ollama run` queries. The fine-tune doesn't
+# need a huge window; questions are short and answers are short. Bump if you
+# want longer conversation history.
+PARAMETER num_ctx 4096
+
+# Anti-rambling knobs. Small fine-tuned models (especially 1B) can drop into
+# degenerate repetition loops if these defaults are left at Ollama's stock
+# values. The 1B is more prone to loops than 3B, so these are tuned a touch
+# more aggressively than you'd want for a larger model.
+PARAMETER repeat_penalty 1.25
+PARAMETER repeat_last_n 256
+PARAMETER num_predict 512
+
+# Sampling — Llama 3.2 Instruct's recommended defaults for casual Q&A.
+PARAMETER temperature 0.4
+PARAMETER top_p 0.9
+
+# Llama 3.x stop tokens — mark end-of-turn and end-of-document.
+PARAMETER stop "<|eot_id|>"
+PARAMETER stop "<|end_of_text|>"
+PARAMETER stop "<|start_header_id|>"
+PARAMETER stop "<|end_header_id|>"
+
+SYSTEM """You are an assistant for the CISC 187 C++ course reader by Dave Parillo. Answer questions about C++ programming, data structures, and algorithms concisely. If you're not sure about a specific detail, say so rather than guessing."""

@@ -1,0 +1,28 @@
+.. digraph:: a_bst
+   :align: center
+   :alt: a binary tree of letters
+
+   graph [
+          nodesep=0.25, ranksep=0.3, splines=line;
+       ];
+   node [fontname = "Bitstream Vera Sans", fontsize=14,
+         style=filled, fillcolor=lightblue,
+         shape=circle, fixedsize=true, width=0.3];
+   edge [weight=1, arrowsize=0.5, dir=none];
+
+   A, B, am, C, D, bm, E, F, cm, dm, em, G;
+   am, bm, cm, dm, em [style=invis, label=""];
+
+   A->B 
+   A->C;
+   B->D [weight=2]; // nudge b: trees b & c are not balanced
+   C->E
+   E->F,G;
+
+   edge [style=invis, weight=100];
+   D->dm; 
+   B->bm;
+   E->em;
+   C->cm;
+   A->am;
+

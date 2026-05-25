@@ -1,0 +1,38 @@
+.. digraph:: a_bst
+   :alt: a binary search tree
+
+   graph [
+          fontname = "Bitstream Vera Sans", fontsize=12,
+          nodesep=0.25, ranksep=0.3, splines=line;
+          labelloc=bottom
+          label="Replace using smallest value from right"
+       ];
+   node [fontname = "Bitstream Vera Sans", fontsize=14,
+         style=filled, fillcolor=lightblue,
+         shape=circle, fixedsize=true, width=0.3];
+   edge [weight=1, arrowsize=0.5, dir=none];
+
+   a, b, am, c, d, bm, f, cm, dm, fm, m;
+   am, bm, cm, dm, fm [style=invis, label=""];
+
+   a [label=40]
+   b [label=20]
+   d [label=10]
+
+   c [label=70]
+   f [label=50]
+   m [label=60]
+
+   a->b 
+   a->c;
+   b->d [weight=2]; // nudge b: trees b & c are not balanced
+   c->f
+   f->m;
+
+   edge [style=invis, weight=100];
+   d->dm; 
+   b->bm;
+   f->fm;
+   c->cm;
+   a->am;
+

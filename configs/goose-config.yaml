@@ -1,0 +1,216 @@
+# Goose configuration for air-gapped use with Ollama + Llama 3.1 8B.
+#
+# This is the full config — drop in over ~/.config/goose/config.yaml and
+# restart any open `goose session` to pick up the changes:
+#
+#     cp configs/goose-config.yaml ~/.config/goose/config.yaml
+#
+# Tuned for "let the agent actually write code without confirmation
+# prompts and without getting confused by too many tool options."
+# Trades a bit of safety for a working code-generation loop.
+
+# ---------------------------------------------------------------------------
+# Execution mode — `auto` means the agent runs tool calls (write_file,
+# run_shell, etc.) without pausing to ask "are you sure?". This is the
+# difference between Goose actually creating files and Goose appearing to
+# hang because it's waiting on an approval prompt you didn't see.
+#
+# Other modes:
+#   smart_approve  — Goose's default; asks before destructive operations
+#   approve        — asks before every tool call (slow but safe)
+#   chat           — read-only, no tool execution (useful for "explain only" sessions)
+# ---------------------------------------------------------------------------
+GOOSE_MODE: auto
+
+# ---------------------------------------------------------------------------
+# Provider — Ollama (the air-gap-compatible choice).
+# Model = llama3.1:8b — Meta's 8B dense model. Chosen for:
+#   - Tools-capable in Ollama's library (chat template already advertises
+#     tool-call placeholders, so Goose accepts it without `<tag> does not
+#     support tools` errors)
+#   - Dense (not MoE), so decisions are consistent — no expert-routing
+#     variance that hurts tool-call reliability on sparse MoE models
+#   - Fits on basically any modern Mac (~5 GB disk, ~6 GB RAM at Q4_K_M),
+#     unlike the 70B which needs ~45 GB free RAM
+#
+# Pull it first (on the networked machine — it's ~5 GB):
+#     ollama pull llama3.1:8b
+#     ollama show llama3.1:8b | grep -i tools   # confirm Capabilities lists tools
+#
+# Hardware reality check:
+#   - 8B at Q4_K_M needs ~6 GB free RAM. Fits on a 16 GB MacBook with room
+#     for the OS and a browser; the planned 64 GB box has plenty of headroom.
+#   - On Intel i9-9980HK CPU expect ~10–15 tokens/sec. Multi-step agent
+#     loops complete in seconds per step rather than minutes.
+#   - Trade-off: noticeably weaker than 70B on plans that chain 4+ tool
+#     calls. Single- and two-tool tasks are fine.
+#
+# Bigger alternatives if 8B feels too weak on multi-step plans:
+#   - llama3.3:70b         — Dense 70B, ~1–3 tok/s on CPU, ~45 GB RAM.
+#                            Best tool-call discipline of any local Llama;
+#                            use it if you have the RAM and patience.
+#   - llama3.1:70b         — Older 70B with 128K context, similar RAM
+#                            footprint, also tools-capable.
+#   - mistral-small:24b    — Mistral 3 family, dense, ~14 GB RAM, also
+#                            strong on tool calls; non-Llama middle ground
+#                            between 8B and 70B.
+# Smaller alternatives if latency matters more than tool-call accuracy:
+#   - llama3.2:3b          — Dense 3B Llama, ~20–30 tok/s, ~3 GB RAM.
+#   - llama3.2:1b          — Smallest tools-capable Llama; smoke testing only.
+# ---------------------------------------------------------------------------
+OLLAMA_HOST: http://127.0.0.1:11434
+
+providers:
+  ollama:
+    enabled: true
+    model: llama3.1:8b
+    configured: true
+
+active_provider: ollama
+
+# ---------------------------------------------------------------------------
+# Telemetry off — air-gap principle. Doesn't matter on a real air-gapped
+# box (Goose can't phone home anyway), but keeps macOS/Linux dev machines
+# from sending usage data while you're prototyping.
+# ---------------------------------------------------------------------------
+GOOSE_TELEMETRY_ENABLED: false
+
+# ---------------------------------------------------------------------------
+# Extensions — the tool surface presented to the model.
+#
+# Local models (30B-class) get measurably worse at picking the right tool
+# when the menu is large. We keep only what's needed for the "explore the
+# repo, write some files" use case:
+#
+#   developer  — text_editor (read/write/edit files) + shell (run commands).
+#                THE essential one. Without this, no file writes possible.
+#   todo       — lets the agent maintain a task list across turns. Helps
+#                multi-step plans stay coherent on a smaller model.
+#
+# Everything else starts disabled. Re-enable later if you find you need it.
+# ---------------------------------------------------------------------------
+extensions:
+  developer:
+    enabled: true
+    type: platform
+    name: developer
+    description: Write and edit files, and execute shell commands
+    display_name: Developer
+    bundled: true
+    available_tools: []
+
+  todo:
+    enabled: true
+    type: platform
+    name: todo
+    description: Enable a todo list for goose so it can keep track of what it is doing
+    display_name: Todo
+    bundled: true
+    available_tools: []
+
+  # ----- everything below is intentionally disabled for clarity ---------
+
+  summarize:
+    enabled: false
+    type: platform
+    name: summarize
+    description: Load files/directories and get an LLM summary in a single call
+    display_name: Summarize
+    bundled: true
+    available_tools: []
+
+  analyze:
+    enabled: false        # Tree-sitter code analysis. Re-enable if you want
+                          # the agent to do symbol-level navigation (call
+                          # graphs, etc.). For general read+write workflows
+                          # the developer extension covers what's needed.
+    type: platform
+    name: analyze
+    description: 'Analyze code structure with tree-sitter: directory overviews, file details, symbol call graphs'
+    display_name: Analyze
+    bundled: true
+    available_tools: []
+
+  code_execution:
+    enabled: false        # Lets Goose run extension calls via code. Saves
+                          # tokens but adds complexity; off by default.
+    type: platform
+    name: code_execution
+    description: Goose will make extension calls through code execution, saving tokens
+    display_name: Code Mode
+    bundled: true
+    available_tools: []
+
+  extensionmanager:
+    enabled: false        # Lets the agent enable/disable extensions on
+                          # the fly. Powerful but distracting for a 30B
+                          # model — off until you specifically need it.
+    type: platform
+    name: Extension Manager
+    description: Enable extension management tools for discovering, enabling, and disabling extensions
+    display_name: Extension Manager
+    bundled: true
+    available_tools: []
+
+  orchestrator:
+    enabled: false        # Multi-agent / subagent orchestration. Overkill
+                          # at this stage; turn on if you graduate to
+                          # multi-agent workflows.
+    type: platform
+    name: orchestrator
+    description: 'Manage agent sessions: list, view, start, send messages, interrupt, and stop agents'
+    display_name: Orchestrator
+    bundled: true
+    available_tools: []
+
+  skills:
+    enabled: false        # Skill discovery from filesystem. Not needed
+                          # for basic repo work.
+    type: platform
+    name: skills
+    description: Discover and provide skill instructions from filesystem and builtins
+    display_name: Skills
+    bundled: true
+    available_tools: []
+
+  summon:
+    enabled: false        # Delegate tasks to subagents. Same family as
+                          # orchestrator; off until you need it.
+    type: platform
+    name: summon
+    description: Load knowledge and delegate tasks to subagents
+    display_name: Summon
+    bundled: true
+    available_tools: []
+
+  tom:
+    enabled: false        # Inject custom context per turn via env vars.
+                          # Useful for advanced prompt engineering, off by
+                          # default to keep token usage predictable.
+    type: platform
+    name: tom
+    description: Inject custom context into every turn via GOOSE_MOIM_MESSAGE_TEXT and GOOSE_MOIM_MESSAGE_FILE environment variables
+    display_name: Top Of Mind
+    bundled: true
+    available_tools: []
+
+  chatrecall:
+    enabled: false        # Search past chat history. Useful for long-
+                          # running projects with many sessions; off by
+                          # default to keep things simple.
+    type: platform
+    name: chatrecall
+    description: Search past conversations and load session summaries for contextual memory
+    display_name: Chat Recall
+    bundled: true
+    available_tools: []
+
+  apps:
+    enabled: false        # Create custom HTML/CSS/JS Goose apps. Not
+                          # related to writing code in a real repo; off.
+    type: platform
+    name: apps
+    description: Create and manage custom Goose apps through chat. Apps are HTML/CSS/JavaScript and run in sandboxed windows.
+    display_name: Apps
+    bundled: true
+    available_tools: []

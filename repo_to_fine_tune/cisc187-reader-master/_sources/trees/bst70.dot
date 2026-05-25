@@ -1,0 +1,36 @@
+.. digraph:: a_bst
+   :alt: a binary search tree
+
+   graph [
+          fontname = "Bitstream Vera Sans", fontsize=12,
+          nodesep=0.25, ranksep=0.3, splines=line;
+          labelloc=bottom
+          label="Remove 70 from BST"
+       ];
+   node [fontname = "Bitstream Vera Sans", fontsize=14,
+         style=filled, fillcolor=lightblue,
+         shape=circle, fixedsize=true, width=0.3];
+   edge [weight=1, arrowsize=0.5, dir=none];
+
+   a, b, am, d, bm, f, l, dm, fm, m;
+   am, bm, dm, fm [style=invis, label=""];
+
+   a [label=30]
+   b [label=20]
+   d [label=10]
+
+   f [label=50]
+   l [label=40]
+   m [label=60]
+
+   a->b 
+   a->f;
+   b->d [weight=2]; // nudge b: trees b & c are not balanced
+   f->l,m;
+
+   edge [style=invis, weight=100];
+   d->dm; 
+   b->bm;
+   f->fm;
+   a->am;
+

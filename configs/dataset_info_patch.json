@@ -1,0 +1,8 @@
+
+  "cisc187_pt": {
+    "file_name": "/Users/pascaljardin/llf-bundle/datasets/cisc187_pt.jsonl",
+    "columns": {
+      "prompt": "text"
+    }
+  }
+
