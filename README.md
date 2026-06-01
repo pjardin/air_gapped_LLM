@@ -291,6 +291,102 @@ goose session
 
 The agent should autonomously call `list_files` / `read_file` to answer — no `/add` ceremony like Aider required.
 
+### Step 3b — Add skills and extensions (plugins) to the agent
+
+Goose has **two** ways to extend the agent, and they do different jobs:
+
+| Mechanism | Gives the agent… | Is a… | Lives in |
+|-----------|------------------|-------|----------|
+| **Extension (MCP server)** | new **tools/abilities** (e.g. query a DB, hit an internal API, drive git) | local process Goose talks to over stdio | `extensions:` block in `config.yaml` |
+| **Skill (`SKILL.md`)** | new **know-how** (procedural instructions for a task) | folder of markdown + optional helper files | `~/.config/agents/skills/<name>/` or `.goose/` in the repo |
+
+Block's own one-liner: *MCP gives agents abilities; skills teach agents how to use those abilities well.* Use an extension when the agent needs to *do* something new; use a skill when it already has the tools but needs a *playbook*.
+
+> **Air-gap rule for both:** nothing may phone home at runtime. The common `npx -y <server>` / `uvx <server>` examples in upstream Goose docs **download the server on first run** — that fails on the offline target. Pre-stage every server binary/script (and any skill files) on the networked machine, ship them over with the rest of the bundle, and point Goose at the **local path**.
+
+#### A) Add an extension (MCP server / "plugin")
+
+Two ways — interactive or by editing the config directly.
+
+**Interactive:**
+
+```bash
+goose configure
+# → Add Extension → Command-line Extension (runs a local STDIO MCP server)
+#   Name:    my-tool
+#   Command: python3.11 /home/<you>/goose-extensions/my_server.py
+#   Timeout: 300
+```
+
+**Or edit `~/.config/goose/config.yaml`** — add a `type: stdio` entry alongside the bundled ones already in `configs/goose-config.yaml`:
+
+```yaml
+extensions:
+  my_tool:
+    enabled: true
+    type: stdio                 # local process over stdio (not sse/streamable_http — those need the network)
+    name: my_tool
+    description: What this tool does, in one line (the model reads this to decide when to call it)
+    cmd: python3.11             # a binary/interpreter that already exists on the target
+    args:
+      - /home/<you>/goose-extensions/my_server.py   # absolute path to the vendored MCP server
+    envs: {}                    # e.g. { DB_PATH: /home/you/data/app.db }
+    timeout: 300
+    bundled: false
+```
+
+Restart any open `goose session` to pick it up, then confirm the new tools registered:
+
+```bash
+goose info -v        # lists active extensions and their tools
+```
+
+Keep the menu small. As noted in `configs/goose-config.yaml`, a local 8B model gets measurably worse at picking the right tool when the tool list is long — add only the extensions a given task actually needs and leave the rest `enabled: false`.
+
+#### B) Add a skill (`SKILL.md`)
+
+First enable the bundled **skills** extension (it ships `enabled: false` in `configs/goose-config.yaml`):
+
+```yaml
+extensions:
+  skills:
+    enabled: true       # flip from false
+    type: platform
+    name: skills
+    description: Discover and provide skill instructions from filesystem and builtins
+    display_name: Skills
+    bundled: true
+    available_tools: []
+```
+
+Then drop a skill folder where Goose discovers them — globally for every session, or per-repo:
+
+```bash
+# Global: available in any goose session on this machine
+mkdir -p ~/.config/agents/skills/cpp-review
+$EDITOR ~/.config/agents/skills/cpp-review/SKILL.md
+
+# Per-repo: ships with the project, only loads inside this repo
+mkdir -p ~/air_gapped_llm/.goose/skills/cpp-review
+```
+
+A `SKILL.md` is YAML frontmatter (`name` + `description` are the required fields) plus a markdown body of instructions:
+
+```markdown
+---
+name: cpp-review
+description: Review C++ for the cisc187 textbook style — checks headers, naming, and RAII. Use when asked to review or critique C++ in this repo.
+---
+
+When reviewing C++ in this repo:
+1. Read the file with the developer tool before commenting.
+2. Flag raw `new`/`delete` and suggest smart pointers.
+3. Check headers use `#pragma once`.
+4. Keep feedback to a short bulleted list.
+```
+
+Goose loads the skill on demand: when a task matches the `description`, it pulls the body into context and follows it. The folder can also hold helper scripts or templates the skill references. Skills are just files, so they transfer over the air gap with `scp`/USB like everything else — no install step that touches the network.
+
 ---
 
 ## Step 4 — Fine-tune
